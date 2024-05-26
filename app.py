@@ -226,28 +226,31 @@ def display_result(result):
 # Main App
 def main():
     start_time = time.time()  # 処理開始時間を記録
-    st.title("Talent Information Retriever")
+    st.title("タレント提案文作成")
+    st.text("Settingsのタレント名に名前を入力して「提案文作成」ボタンを押す")
+    st.text("大まかな流れ WEB上から記事を取得→記事を要約→要約した内容で提案文を作成→提案文をCSVでダウンロード")
+    st.text("Settingsの項目目安 5記事300文字要約くらいで一定の精度が出ると思いますが、微妙だなとなったら10記事400文字とかにしてみてもいいかもです。")
+    st.text("5記事300文字要約の場合 処理時間:3~4分/人 費用:2~3円")
+    st.markdown("<small>AIなので正しい情報とは限らないのと回答はバラツキます。あくまで取っ掛かりやヒントとして使ってください。</small>", unsafe_allow_html=True)
+    st.sidebar.title("Settings")
     # セッションステートから設定項目の値を取得
-    talent_names = st.session_state.get("talent_names", "出口夏希")
-    tavily_prompt = st.session_state.get("tavily_prompt", "{talentName}の2023年以降の出演に関する情報")
-    max_results = st.session_state.get("max_results", 3)
+    talent_names = st.session_state.get("talent_names", "")
+    tavily_prompt = st.session_state.get("tavily_prompt", "{talentName}の出演に関する情報(2023年以降)")
+    max_results = st.session_state.get("max_results", 5)
     claude_model_summarization = st.session_state.get("claude_model_summarization", "claude-3-haiku-20240307")
-    summarization_length = st.session_state.get("summarization_length", 100)
+    summarization_length = st.session_state.get("summarization_length", 300)
     claude_model_introduction = st.session_state.get("claude_model_introduction", "claude-3-haiku-20240307")
-    introduction_prompt = st.session_state.get("introduction_prompt", "以下の情報をもとに、{talentName}を広告起用する際の推しポイントを紹介する文章を作成してください。その際、根拠となる情報の引用元の番号を[1]、[2]のように付けてください。")
+    introduction_prompt = st.session_state.get("introduction_prompt", "以下の情報をもとに、{talentName}を広告起用する際の推しポイントを紹介する文章を作成してください。")
 
-    st.session_state.show_inputs = st.checkbox("Show Inputs", value=True)
+    talent_names = st.sidebar.text_area("タレント名\n[改行して複数人入力可]", value=talent_names, key="talent_names")
+    tavily_prompt = st.sidebar.text_area("情報収集AIの指示", value=tavily_prompt, key="tavily_prompt")
+    max_results = st.sidebar.selectbox("情報収集で取得する記事数", list(range(1, 21)), index=max_results-1, key="max_results")
+    claude_model_summarization = st.sidebar.selectbox("記事要約のモデル(今はhaikuでよい)", ["claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307"], index=["claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307"].index(claude_model_summarization), key="claude_model_summarization")
+    summarization_length = st.sidebar.number_input("要約する際の文字数", min_value=100, max_value=1000, value=summarization_length, key="summarization_length")
+    claude_model_introduction = st.sidebar.selectbox("提案文作成のモデル(今はhaikuでよい)", ["claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307"], index=["claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307"].index(claude_model_introduction), key="claude_model_introduction")
+    introduction_prompt = st.sidebar.text_area("提案文作成時のAIへの指示", value=introduction_prompt, key="introduction_prompt")
 
-    if st.session_state.show_inputs:
-        talent_names = st.text_area("Enter the talent names (one per line)", value=talent_names, key="talent_names")
-        tavily_prompt = st.text_area("Enter the Tavily API prompt", value=tavily_prompt, key="tavily_prompt")
-        max_results = st.selectbox("Select the number of articles to retrieve", list(range(1, 21)), index=max_results-1, key="max_results")
-        claude_model_summarization = st.selectbox("Select the Claude model for summarization", ["claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307"], index=["claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307"].index(claude_model_summarization), key="claude_model_summarization")
-        summarization_length = st.number_input("Enter the maximum length for summaries", min_value=100, max_value=1000, value=summarization_length, key="summarization_length")
-        claude_model_introduction = st.selectbox("Select the Claude model for introduction improvement", ["claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307"], index=["claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307"].index(claude_model_introduction), key="claude_model_introduction")
-        introduction_prompt = st.text_area("Enter the prompt for improving the introduction", value=introduction_prompt, key="introduction_prompt")
-
-    if st.button("Retrieve Talent Information"):
+    if st.button("提案文作成"):
         if not TAVILY_API_KEY:
             st.error("Tavily API key is required.")
         elif not talent_names.strip():
@@ -267,7 +270,9 @@ def main():
             if results:
                 table_data = []
                 for result in results:
-                    table_data.append([result['talent_name'], result['improved_introduction'],result['references'],result['answer']])
+# referenceの形式を変更
+                    formatted_references = [f"[{ref['index']}]{ref['title']}\n{ref['url']}" for ref in result['references']]
+                    table_data.append([result['talent_name'], result['improved_introduction'], "\n".join(formatted_references), result['answer']])
 
                 df = pd.DataFrame(table_data, columns=['Talent Name', 'Improved Introduction','reference','simple answer'])
 
