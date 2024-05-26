@@ -1,0 +1,7 @@
+streamlit
+requests
+fake_useragent
+beautifulsoup4
+python-dotenv
+pyperclip
+pandas
