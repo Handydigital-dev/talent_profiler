@@ -9,6 +9,7 @@ import os
 from dotenv import load_dotenv
 import pyperclip
 import pandas as pd
+st.set_page_config(page_title="AICS提案文章作成")
 
 # 環境変数を読み込む
 load_dotenv()
@@ -226,7 +227,7 @@ def display_result(result):
 # Main App
 def main():
     start_time = time.time()  # 処理開始時間を記録
-    st.title("タレント提案文作成")
+    st.title("AICSタレント提案文作成")
     st.text("Settingsのタレント名に名前を入力して「提案文作成」ボタンを押す")
     st.text("大まかな流れ WEB上から記事を取得→記事を要約→要約した内容で提案文を作成→提案文をCSVでダウンロード")
     st.text("Settingsの項目目安 5記事300文字要約くらいで一定の精度が出ると思いますが、\n微妙だなとなったら10記事400文字とかにしてみてもいいかもです。")
