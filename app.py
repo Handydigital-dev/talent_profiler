@@ -228,8 +228,10 @@ def display_result(result):
 def main():
     start_time = time.time()  # 処理開始時間を記録
     st.title("AICSタレント提案文作成")
-    st.text("Settingsのタレント名に名前を入力して「提案文作成」ボタンを押す")
-    st.text("大まかな流れ WEB上から記事を取得→記事を要約→要約した内容で提案文を作成→提案文をCSVでダウンロード")
+    st.text("Settingsのタレント名に名前を入力して「簡易提案文作成」「提案文作成」ボタンを押す")
+    st.text("「簡易提案文作成」： WEB上から記事を取得(20記事固定)→概要を作成→概要をCSVでダウンロード")
+    st.markdown("<small>↑ 精度よりもとにかくざっとでも提案文が必要のとき、精度のバラツキが大きい</small>", unsafe_allow_html=True)
+    st.text("「提案文作成」： WEB上から記事を取得→記事を要約→要約した内容で提案文を作成→提案文をCSVでダウンロード")
     st.text("Settingsの項目目安 5記事300文字要約くらいで一定の精度が出ると思いますが、\n微妙だなとなったら10記事400文字とかにしてみてもいいかもです。")
     st.text("5記事300文字要約の場合 処理時間:3~4分/人 費用:2~3円")
     st.markdown("<small>AIなので正しい情報とは限らないのと回答はバラツキます。あくまで取っ掛かりやヒントとして使ってください。</small>", unsafe_allow_html=True)
@@ -250,6 +252,29 @@ def main():
     summarization_length = st.sidebar.number_input("要約する際の文字数", min_value=100, max_value=1000, value=summarization_length, key="summarization_length")
     claude_model_introduction = st.sidebar.selectbox("提案文作成のモデル(今はhaikuでよい)", ["claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307"], index=["claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307"].index(claude_model_introduction), key="claude_model_introduction")
     introduction_prompt = st.sidebar.text_area("提案文作成時のAIへの指示", value=introduction_prompt, key="introduction_prompt")
+
+    if st.button("簡易提案文作成"):
+        if not TAVILY_API_KEY:
+            st.error("Tavily API key is required.")
+        elif not talent_names.strip():
+            st.error("Please enter at least one talent name.")
+        elif not tavily_prompt.strip():
+            st.error("Tavily API prompt is required.")
+        else:
+            talent_names_list = [name.strip() for name in talent_names.split('\n') if name.strip()]
+            total_talents = len(talent_names_list)
+            simple_results = []
+            for i, talent_name in enumerate(talent_names_list, start=1):
+                with st.spinner(f"Processing {talent_name} ({i}/{total_talents})..."):
+                    simple_result = collect_talent_info(talent_name, tavily_prompt, 20, TAVILY_API_KEY)
+                    if simple_result:
+                        formatted_references = [f"[{j+1}] {result['title']}\n{result['url']}" for j, result in enumerate(simple_result['results'])]
+                        simple_results.append([talent_name, simple_result.get("answer", ""), "\n".join(formatted_references)])
+
+            if simple_results:
+                simple_df = pd.DataFrame(simple_results, columns=['Talent Name', 'Simple Answer', 'References'])
+                st.write("## Simple Results")
+                st.dataframe(simple_df, width=800)
 
     if st.button("提案文作成"):
         if not TAVILY_API_KEY:
